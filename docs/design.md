@@ -68,7 +68,9 @@ Cargo workspace：
 ### 4.1 佇列
 - 上傳：WAN egress 掛 CAKE。下載：WAN ingress → `act_ctinfo` 還原 DSCP → mirred 到 IFB → CAKE `ingress`
 - `diffserv4`；上傳 `dual-srchost nat`、下載 `dual-dsthost nat`（同一台裝置開再多連線，也只拿到自己那一份）
-- 有 `cake_mq`（25.12 已 backport）且實測比單佇列好時改用；先在目標硬體上跑分再決定預設
+- 有 `cake_mq`（25.12 已 backport）且實測比單佇列好時改用；先在目標硬體上跑分再決定預設。1 Gbps 以下、CPU 夠快（例如 N100）時單佇列 CAKE 就夠
+- 不提供 qdisc 與腳本的自由組合（sqm-scripts 的兩個下拉選單）：一般與進階分頁由 Sluice 自動選；專家分頁只開放 CAKE 參數，以及「HTB＋fq_codel」這個給弱 CPU 的備案
+- L4S（DualPI2）：OpenWrt 25.12 的 6.12 核心沒有，終端支援也還少，暫不做；核心有了以後列為專家分頁的實驗選項
 - 建立 qdisc 用 `tc` 指令；**改頻寬這個常用動作直接用 netlink**，不 fork `tc`
 - reload 時只改變動的參數，不拆掉重建
 
@@ -167,7 +169,7 @@ CAKE 的 tin 不是嚴格排隊：前三級各有上限（1/4、1/2、全部）�
 
 1. `core` 單元測試：模擬光纖、PPPoE 晚間壅塞、行動網路（Mahimahi 公開 trace）、Starlink 的延遲與容量曲線
 2. CI 整合測試：network namespace＋netem 模擬瓶頸，跑真的 CAKE、IFB、nftables
-3. 實機：光世代 500/500 FTTH（PPPoE）
+3. 實機：Intel N100（x86_64，4 核）＋光世代 500/500 FTTH（PPPoE）。N100 處理雙向 500 Mbps 的 CAKE 綽綽有餘，預期一直在 L0；CPU 保護要另外用弱機器或 CI 的 namespace 測試（限制 CPU）驗證
 
 ## 9. 打包
 
@@ -187,7 +189,6 @@ CAKE 的 tin 不是嚴格排隊：前三級各有上限（1/4、1/2、全部）�
 
 | 項目 | 怎麼確認 |
 |---|---|
-| 使用者的路由器型號 | 問使用者；決定 500/500 時 CPU 保護的預設門檻 |
 | `cake_mq` 在目標硬體上是否比單佇列好 | 實機跑分 |
 | `tc-tiny` 能不能設定 CAKE、輸出 `-j` JSON | 在 25.12 上試；不行就依賴 `tc-full` |
 | dnsmasq 的 dhcp-script 拿得到哪些 DHCP 指紋欄位 | 讀 dnsmasq 文件並實測 |
