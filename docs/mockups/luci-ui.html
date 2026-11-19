@@ -478,7 +478,12 @@ footer.foot{color:var(--muted);font-size:.84em;text-align:center}
       <div class="row-switch">
         <div>
           <h2>CPU 保護</h2>
-          <p class="muted">路由器 CPU 忙不過來時，塑型反而會讓網路變慢。開啟後，任一核心處理封包的時間超過 90% 持續 5 秒，就降一檔；CPU 回穩 10 分鐘後再試著升回一檔。如果停掉塑型後 CPU 還是滿載，或一天內第 3 次停用，就還原你原本的硬體加速設定，改成每天凌晨重試一次。</p>
+          <p class="muted">路由器 CPU 忙不過來時，塑型反而會讓網路變慢。開啟後，任一核心處理封包的時間超過 90% 持續 5 秒，會依序：</p>
+          <ol class="muted small" style="margin:0;padding-left:1.4em">
+            <li>先調整、不拿掉功能：讓其他核心分攤 → 單一核心跟不上時改用多佇列 CAKE → 限速到 CPU 跟得上的速度（降幅上限：延遲優先 30%、平衡 15%、頻寬優先不限速）</li>
+            <li>還是不夠，才照下面的檔位一檔一檔拿掉功能</li>
+            <li>CPU 回穩 10 分鐘後試著升回一檔；每小時最多調整 4 次，升上去又馬上過載，下次等待時間加倍</li>
+          </ol>
         </div>
         <label class="switch"><input type="checkbox" id="cpu-guard" checked aria-label="CPU 保護"><span></span></label>
       </div>
@@ -568,12 +573,13 @@ initialLog.slice().reverse().forEach(([t,m])=>{
 
 /* ---------- CPU ladder ---------- */
 const LEVELS = [
-  ['L0','完整','上下行都塑型，四級優先順序，含大流量偵測與服務規則。'],
-  ['L1','停用動態分類','保留裝置規則，關掉每個封包都要比對的服務與大流量規則。'],
-  ['L2','簡化佇列','取消四級優先與每台裝置平分頻寬，只留基本的公平排隊。'],
-  ['L3','只管上傳','停掉下載方向（最吃 CPU 的部分），下載回到全速不塑型。'],
-  ['L4','暫停塑型','全部不塑型，避免越管越慢。硬體加速維持關閉，10 分鐘後再試，之後間隔 20、40 分鐘。'],
-  ['L5','交還硬體加速','停掉塑型後 CPU 仍滿載，或一天內第 3 次停用：還原你原本的硬體加速設定，網路全速但沒有延遲控制。每天凌晨重試一次。'],
+  ['L0','完整','上下行都塑型，四級優先順序，含 P2P、大流量偵測與服務規則。'],
+  ['L1','停用動態分類','關掉 P2P 與大流量偵測、服務規則，保留裝置與網域規則。'],
+  ['L2','下載不分級','下載不再還原優先順序（省下每個封包查一次連線表），上傳照樣分四級。'],
+  ['L3','簡化佇列','取消四級優先與每台裝置平分頻寬，只留基本的公平排隊。'],
+  ['L4','只管上傳','停掉下載方向（最吃 CPU 的部分），下載回到全速不塑型。'],
+  ['L5','暫停塑型','全部不塑型，避免越管越慢。硬體加速維持關閉，10 分鐘後再試，之後間隔 20、40 分鐘。'],
+  ['L6','交還硬體加速','停掉塑型後 CPU 仍滿載，或一天內第 3 次停用：還原你原本的硬體加速設定，網路全速但沒有延遲控制。每天凌晨重試一次。'],
 ];
 let level=0;
 function renderLadder(){
@@ -590,12 +596,12 @@ function renderLadder(){
     });
   }
   $('#st-cpu').textContent = LEVELS[level][0]+' '+LEVELS[level][1];
-  $('#st-cpu-hint').textContent = level===0 ? '最忙的核心 38%' : level===5 ? '硬體加速中，每天 04:00 重試' : level===4 ? '塑型已暫停，等 CPU 回穩' : '已降級，等 CPU 回穩後再升回';
+  $('#st-cpu-hint').textContent = level===0 ? '最忙的核心 38%' : level===6 ? '硬體加速中，每天 04:00 重試' : level===5 ? '塑型已暫停，等 CPU 回穩' : '已降級，等 CPU 回穩後再升回';
   const pill=$('#state-pill'), txt=$('#state-text');
   if(!$('#en').checked){ pill.className='pill off'; txt.textContent='已關閉'; }
   else if(level===0){ pill.className='pill good'; txt.textContent='運作中'; }
-  else if(level<4){ pill.className='pill warn'; txt.textContent='運作中 · CPU 不足已降級'; }
-  else if(level===4){ pill.className='pill warn'; txt.textContent='暫停中 · CPU 不足'; }
+  else if(level<5){ pill.className='pill warn'; txt.textContent='運作中 · CPU 不足已降級'; }
+  else if(level===5){ pill.className='pill warn'; txt.textContent='暫停中 · CPU 不足'; }
   else { pill.className='pill bad'; txt.textContent='未塑型 · 已交還硬體加速'; }
 }
 function setOffload(restored){
@@ -606,7 +612,7 @@ function setOffload(restored){
     t.innerHTML='<b>已還原硬體 flow offloading。</b> 這台路由器的 CPU 處理不了雙向 500 Mbps 的塑型，停掉塑型後光轉送也忙不過來，所以交還硬體加速。網路維持全速，但沒有延遲控制。每天 04:00 會再試一次，也可以到「一般」分頁手動重新校準。';
   }else{
     n.className='notice';
-    t.innerHTML='<b>已再次關閉硬體 flow offloading，</b>重新嘗試塑型。如果晚上尖峰又過載，會回到 L5，下次重試的間隔加倍。';
+    t.innerHTML='<b>已再次關閉硬體 flow offloading，</b>重新嘗試塑型。如果晚上尖峰又過載，會回到 L6，下次重試的間隔加倍。';
   }
 }
 renderLadder();
@@ -616,14 +622,18 @@ $('#cpu-demo').addEventListener('click',async()=>{
   if(demoRunning) return; demoRunning=true;
   const wait=ms=>new Promise(r=>setTimeout(r,ms));
   toast('開始模擬：CPU 被大量下載塞滿');
-  const reasons=['核心 2 處理封包佔 96%，持續 5 秒','降級後仍佔 94%','降級後仍佔 92%','只塑上傳仍佔 91%'];
-  for(let i=1;i<=4;i++){ await wait(1400); level=i; renderLadder(); log(`CPU 太忙（${reasons[i-1]}），降到 ${LEVELS[i][0]}「${LEVELS[i][1]}」。`); }
-  await wait(1800); level=5; renderLadder(); setOffload(true);
+  await wait(1400); log('CPU 太忙（核心 2 處理封包佔 96%，其他核心 30%）：先開啟封包分散，讓其他核心分攤。');
+  await wait(1400); log('核心 2 仍佔 93%；網卡只有單一佇列，不適用 cake_mq。');
+  await wait(1400); dnRateNow=430; log('把下載上限從 470 限到 430 Mbps（CPU 跟得上的速度，降 9%，在「平衡」允許的 15% 以內）。');
+  const reasons=['限速後仍佔 94%','降級後仍佔 93%','降級後仍佔 92%','降級後仍佔 92%','只塑上傳仍佔 91%'];
+  for(let i=1;i<=5;i++){ await wait(1400); level=i; renderLadder(); log(`CPU 太忙（${reasons[i-1]}），降到 ${LEVELS[i][0]}「${LEVELS[i][1]}」。`); }
+  await wait(1800); level=6; renderLadder(); setOffload(true);
   log('停掉塑型後 CPU 仍佔 93%，光轉送就忙不過來：還原硬體 flow offloading（你原本的設定），改成每天 04:00 重試。');
   await wait(4000);
-  log('04:00 離峰重試（示範縮短）：先關閉硬體 flow offloading，直接試 L3。'); setOffload(false); level=3; renderLadder();
+  log('04:00 離峰重試（示範縮短）：先關閉硬體 flow offloading，直接試 L4。'); setOffload(false); level=4; renderLadder();
   await wait(1600); log('離峰流量小，CPU 負載正常，繼續升檔。');
-  for(let i=2;i>=0;i--){ await wait(1100); level=i; renderLadder(); log(`升回 ${LEVELS[i][0]}「${LEVELS[i][1]}」，CPU 負載正常。`); }
+  for(let i=3;i>=0;i--){ await wait(1100); level=i; renderLadder(); log(`升回 ${LEVELS[i][0]}「${LEVELS[i][1]}」，CPU 負載正常。`); }
+  await wait(1100); dnRateNow=470; log('下載上限恢復到 470 Mbps。');
   demoRunning=false;
 });
 
@@ -766,7 +776,7 @@ function sample(){
   const u = Math.min(upRateNow, 480*loadU*(.8+Math.random()*.4));
   let l = 1.2+Math.random()*1.6 + (loadD>.9 ? 1.5+Math.random()*3 : 0);
   if(Math.random()<.015) l += 8+Math.random()*10;
-  if(!$('#en').checked || level>=4) l += loadD>.9 ? 25+Math.random()*15 : 0;
+  if(!$('#en').checked || level>=5) l += loadD>.9 ? 25+Math.random()*15 : 0;
   return {l, d, u};
 }
 for(let i=0;i<N;i++){ const s=sample(); lat.push(s.l); dn.push(s.d); up.push(s.u); dnR.push(dnRateNow); upR.push(upRateNow); }

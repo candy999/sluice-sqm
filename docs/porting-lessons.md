@@ -53,7 +53,7 @@ Sluice 的目標平台是 OpenWrt，之後也要能放進其他路由器韌體�
 - 黑潮把跟介面框架無關的純函式（時間格式、位元組格式、比對邏輯）放在 `data/shared/ui-core.js`，LuCI、Windows 設定頁、Padavan 都載入同一份；每個函式的輸入與預期輸出寫在 `ui-core.tests.json`，CI 逐一檢查。語法用 ES5，`require()` 也能用。（integration.md「網頁共用檔」）
 - 儀表板 `dashboard.js` 從「轉接器」拿資料，各平台只寫轉接器。Padavan 直接把韌體裡黑潮附的 dashboard.js 連結進網頁目錄，不另外複製。（HANDOFF-UI 13.8）
 
-→ **Sluice**：`data/shared/sluice-ui-core.js`：分數與白話說明（「延遲只多 3 ms」）、檔位說明（L0～L5）、單位格式、SVG 圖表繪製，加上 `sluice-ui-core.tests.json`。LuCI view 與 Padavan 頁面都只負責排版與取資料。這樣「延遲品質分數怎麼說」不會在兩個平台各寫一份而說法不同。
+→ **Sluice**：`data/shared/sluice-ui-core.js`：分數與白話說明（「延遲只多 3 ms」）、檔位說明（L0～L6）、單位格式、SVG 圖表繪製，加上 `sluice-ui-core.tests.json`。LuCI view 與 Padavan 頁面都只負責排版與取資料。這樣「延遲品質分數怎麼說」不會在兩個平台各寫一份而說法不同。
 
 ### 1.6 資料介面的共同格式（沿用 padavan-tw 的約定）
 padavan-tw 的後台已經定好這套格式（HANDOFF-UI 第 6 節），Sluice 直接照用，之後放進 padavan-tw 的總覽頁不用轉換：
@@ -134,7 +134,7 @@ padavan-tw 的後台已經定好這套格式（HANDOFF-UI 第 6 節），Sluice 
 ### 4.2 故障時的退回
 - 黑潮停擺時把 DNS 交回業者，不讓網路斷掉。（PORTING.md 第 6 節）
 
-→ **Sluice**：daemon 掛掉時 qdisc 還留在介面上，頻寬卡在最後一個值。**看門狗**（procd 的 respawn 以外）：daemon 停止超過 N 秒，就把 qdisc 拿掉、讓網路回到不塑型（等同 L4）。這比「卡在一個可能過低的頻寬」安全。關機或停止服務時也要清乾淨。
+→ **Sluice**：daemon 掛掉時 qdisc 還留在介面上，頻寬卡在最後一個值。**看門狗**（procd 的 respawn 以外）：daemon 停止超過 N 秒，就把 qdisc 拿掉、讓網路回到不塑型（等同 L5）。這比「卡在一個可能過低的頻寬」安全。關機或停止服務時也要清乾淨。
 
 ### 4.3 精準辨識主程式
 - `pidof kuroshio` 會把 `kuroshio health`、`export` 這些子指令也算進去，`stop` 曾經連每日匯出一起殺掉。（HANDOFF-UI 13.12「程式辨識」）
@@ -208,12 +208,12 @@ padavan-tw 的後台已經定好這套格式（HANDOFF-UI 第 6 節），Sluice 
 
 | 事實 | 出處 | 對 Sluice 的影響 |
 |---|---|---|
-| **MT7621 跑 CAKE，PPPoE 大約 400 Mbps 就到頂** | ROADMAP E 章 | 500/500 線路在 MT7621 一定會降檔（L3 或 L5）。CPU 保護是必要功能，不是附加功能 |
+| **MT7621 跑 CAKE，PPPoE 大約 400 Mbps 就到頂** | ROADMAP E 章 | 500/500 線路在 MT7621 一定會降檔（L4 或 L6）。CPU 保護是必要功能，不是附加功能 |
 | **硬體 QoS（QDMA）讓 CPU 平均從 17% 升到 57%，限速 250／200、150／100 時 Wi-Fi 延遲都沒改善**；Wi-Fi 滿載延遲是驅動佇列與空中時間不公平造成的，不在 WAN | ROADMAP E 章、WIFI-STABILITY.md | Sluice 只解決**網際網路這一段**的延遲。介面不能暗示能改善 Wi-Fi 延遲；診斷要分開說明是 Wi-Fi 慢還是網際網路慢 |
-| **硬體 NAT 會繞過流量計數**；padavan-tw 的 WAN 速率取「WAN 介面」與「交換器埠 `ESW_P0`」兩者中大的 | HANDOFF-UI 第 4 節、第 6 節 `wan` | L5（交還硬體加速）時，介面計數不準，負載判斷要換資料來源或標示「硬體加速中，數字僅供參考」。**不做每台裝置的流量排行** |
+| **硬體 NAT 會繞過流量計數**；padavan-tw 的 WAN 速率取「WAN 介面」與「交換器埠 `ESW_P0`」兩者中大的 | HANDOFF-UI 第 4 節、第 6 節 `wan` | L6（交還硬體加速）時，介面計數不準，負載判斷要換資料來源或標示「硬體加速中，數字僅供參考」。**不做每台裝置的流量排行** |
 | Padavan 沒有 nftables，用 iptables＋ipset | ROADMAP G3 | 分類要有兩個後端：nftables（OpenWrt）、iptables（Padavan） |
 | Padavan 是 Linux 4.4 | HANDOFF-LOCAL 第 2 節 | `act_ctinfo`（5.3 起才有）不能用，下載方向的分類要另外想辦法（需確認：4.4 上能用的 `act_connmark`＋CAKE 的 `fwmark`、或只分類上傳）。4.4 也沒有 PSI |
-| 上游 TurBoTse 有 SQM／cake（含 IFB 模組）；padavan-tw 因 CPU 負擔已把軟體 SQM 移除，並列「Rust 版 SQM＋cFosSpeed 類套件整合：未來另外評估」 | PATCH-REVIEW、ROADMAP「不做」 | Sluice 就是這個「未來評估」的候選。進 Padavan 時，CPU 保護＋只塑上傳（L3）是主要賣點 |
+| 上游 TurBoTse 有 SQM／cake（含 IFB 模組）；padavan-tw 因 CPU 負擔已把軟體 SQM 移除，並列「Rust 版 SQM＋cFosSpeed 類套件整合：未來另外評估」 | PATCH-REVIEW、ROADMAP「不做」 | Sluice 就是這個「未來評估」的候選。進 Padavan 時，CPU 保護＋只塑上傳（L4）是主要賣點 |
 | D3 根目錄 squashfs 已滿（13 MB 用到 100%），黑潮執行檔 9.5 MB | HANDOFF-UI 12.1 | Sluice 的 1 MB 目標對 Padavan 很重要 |
 | busybox 沒有 `cmp`（每次比對都當成不同，導致每次都重啟 dnsmasq）；busybox `find` 不跟進捷徑（`/proc/device-tree/` 一定要加斜線） | HANDOFF-UI 13.12、HANDOFF-LOCAL 第 2 節 | 整合腳本只用 busybox 確定有的功能；能在 Rust 裡做的就不要交給 shell |
 | 中華電信 MOD（IPTV）流量不應經過排程 | ROADMAP E11 | Sluice 要辨識並排除 MOD 的 VLAN／介面（待查 OpenWrt 上的常見接法） |
