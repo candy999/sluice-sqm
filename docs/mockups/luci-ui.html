@@ -216,9 +216,15 @@ tr:last-child td{border-bottom:0}
 .dev{display:grid;gap:1px}
 .dev b{font-weight:600}
 .tag{display:inline-block;font-size:.76em;padding:1px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent-strong);font-weight:600;margin-left:4px;vertical-align:1px}
-.svc{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px 14px;align-items:center}
-.svc .nm{font-weight:600}
-.svc .ds{color:var(--muted);font-size:.86em}
+.tiers{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.tiers li{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--sunk)}
+.tiers .rank{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--accent);color:var(--on-accent);font-variant-numeric:tabular-nums}
+.tiers li:nth-child(2) .rank{background:color-mix(in srgb,var(--accent) 78%,var(--sunk))}
+.tiers li:nth-child(3) .rank{background:color-mix(in srgb,var(--accent) 52%,var(--sunk))}
+.tiers li:nth-child(4) .rank{background:var(--line);color:var(--muted)}
+.tiers .nm{font-weight:650}
+.tiers .ds{color:var(--muted);font-size:.86em}
+.tiers .lim{font-size:.84em;margin-top:2px}
 .cls{font-size:.8em;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
 .cls.hi{background:var(--good-soft);color:var(--good)}
 .cls.lo{background:var(--sunk);color:var(--muted);border:1px solid var(--line)}
@@ -313,7 +319,7 @@ footer.foot{color:var(--muted);font-size:.84em;text-align:center}
       <div class="card">
         <h2>線路偵測</h2>
         <dl class="kv">
-          <dt>WAN</dt><dd class="mono">pppoe-wan</dd>
+          <dt>網際網路介面</dt><dd class="mono">pppoe-wan</dd>
           <dt>連線方式</dt><dd>PPPoE · 光纖 <span class="muted">（推測）</span></dd>
           <dt>封包額外開銷</dt><dd><span class="num">46</span> bytes <span class="muted">＝乙太網路 38＋PPPoE 8</span></dd>
           <dt>最小封包</dt><dd><span class="num">84</span> bytes</dd>
@@ -357,9 +363,9 @@ footer.foot{color:var(--muted);font-size:.84em;text-align:center}
     <div class="card">
       <h2>家裡主要怎麼用網路？</h2>
       <div class="presets">
-        <label class="preset"><input type="radio" name="preset" id="pr-general" value="general" checked><span class="pt">一般上網</span><span class="pd">影音、網頁、下載都照顧到，誰都不會被餓死。</span></label>
-        <label class="preset"><input type="radio" name="preset" id="pr-gaming" value="gaming"><span class="pt">打電動</span><span class="pd">遊戲主機與遊戲連線最優先，大型下載自動讓路。</span></label>
-        <label class="preset"><input type="radio" name="preset" id="pr-meet" value="conference"><span class="pt">視訊會議</span><span class="pd">Meet、Teams、Zoom 的聲音與畫面最優先，上傳保留餘量。</span></label>
+        <label class="preset"><input type="radio" name="preset" id="pr-general" value="general" checked><span class="pt">一般上網</span><span class="pd">照預設順序：電話與視訊 → 線上遊戲 → 影片串流 → 檔案下載。</span></label>
+        <label class="preset"><input type="radio" name="preset" id="pr-gaming" value="gaming"><span class="pt">打電動</span><span class="pd">線上遊戲升到跟電話視訊同一級，延遲門檻更嚴，大型下載更早讓路。</span></label>
+        <label class="preset"><input type="radio" name="preset" id="pr-meet" value="conference"><span class="pt">視訊會議</span><span class="pd">通話上傳保留更多餘量，雲端備份在開會時自動放慢。</span></label>
       </div>
     </div>
 
@@ -400,39 +406,52 @@ footer.foot{color:var(--muted);font-size:.84em;text-align:center}
   <!-- ================= 進階 ================= -->
   <section class="tabpanel" id="advanced" role="tabpanel" aria-labelledby="t-advanced" hidden>
     <div class="card">
-      <div class="card-head"><h2>裝置優先順序</h2><span class="muted small">依 MAC 位址辨識，換 IP 也認得</span></div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>裝置</th><th>廠牌</th><th>目前用量</th><th>優先順序</th></tr></thead>
-          <tbody>
-            <tr><td><div class="dev"><b>PS5<span class="tag">遊戲主機</span></b><span class="muted small mono">78:C8:81:··:··:12</span></div></td><td>Sony</td><td class="num">0.4 Mbps</td>
-              <td><select id="dev-ps5" aria-label="PS5 優先順序"><option value="hi" selected>優先</option><option value="mid">一般</option><option value="lo">背景</option></select><div class="why">依廠牌自動判斷</div></td></tr>
-            <tr><td><div class="dev"><b>書房桌機</b><span class="muted small mono">04:42:1A:··:··:7E</span></div></td><td>ASUSTek</td><td class="num">186 Mbps</td>
-              <td><select id="dev-pc" aria-label="書房桌機優先順序"><option value="hi">優先</option><option value="mid" selected>一般</option><option value="lo">背景</option></select></td></tr>
-            <tr><td><div class="dev"><b>客廳電視</b><span class="muted small mono">F0:B3:EC:··:··:03</span></div></td><td>Apple</td><td class="num">24 Mbps</td>
-              <td><select id="dev-tv" aria-label="客廳電視優先順序"><option value="hi">優先</option><option value="mid" selected>一般</option><option value="lo">背景</option></select></td></tr>
-            <tr><td><div class="dev"><b>NAS</b><span class="muted small mono">00:11:32:··:··:9A</span></div></td><td>Synology</td><td class="num">31 Mbps</td>
-              <td><select id="dev-nas" aria-label="NAS 優先順序"><option value="hi">優先</option><option value="mid">一般</option><option value="lo" selected>背景</option></select><div class="why">備份與同步不急</div></td></tr>
-            <tr><td><div class="dev"><b>手機（iPhone）</b><span class="muted small mono">隨機 MAC</span></div></td><td class="muted">無法辨識</td><td class="num">1.2 Mbps</td>
-              <td><select id="dev-phone" aria-label="手機優先順序"><option value="hi">優先</option><option value="mid" selected>一般</option><option value="lo">背景</option></select><div class="why">手機開了隨機 MAC，重連後可能變成新裝置</div></td></tr>
-          </tbody>
-        </table>
-      </div>
+      <div class="card-head"><h2>流量優先順序</h2><span class="muted small">網路忙的時候，由上往下照顧</span></div>
+      <ol class="tiers">
+        <li>
+          <span class="rank">1</span>
+          <div><div class="nm">電話與視訊</div><div class="ds">LINE、FaceTime、Discord 語音、Google Meet、Teams、Zoom</div><div class="lim">最優先，直到佔用超過頻寬的 1/4（一通 1080p 視訊約 3 Mbps）</div></div>
+          <label class="switch sm"><input type="checkbox" id="tier-call" checked aria-label="自動辨識電話與視訊"><span></span></label>
+        </li>
+        <li>
+          <span class="rank">2</span>
+          <div><div class="nm">線上遊戲</div><div class="ds">遊戲主機與電腦的遊戲連線：PlayStation Network、Xbox Live、Steam、Nintendo</div><div class="lim">次優先，直到佔用超過頻寬的 1/2</div></div>
+          <label class="switch sm"><input type="checkbox" id="tier-game" checked aria-label="自動辨識線上遊戲"><span></span></label>
+        </li>
+        <li>
+          <span class="rank">3</span>
+          <div><div class="nm">影片串流</div><div class="ds">YouTube、Netflix、Disney+、Twitch、巴哈姆特動畫瘋</div><div class="lim">影片有緩衝，晚一點點送到也不會卡</div></div>
+          <label class="switch sm"><input type="checkbox" id="tier-video" checked aria-label="自動辨識影片串流"><span></span></label>
+        </li>
+        <li>
+          <span class="rank">4</span>
+          <div><div class="nm">檔案下載</div><div class="ds">遊戲與系統更新、雲端備份，以及其他長時間的大流量</div><div class="lim">沒人在用時照樣跑滿；忙的時候讓路，但至少保留 1/16，不會停住</div></div>
+          <label class="switch sm"><input type="checkbox" id="tier-bulk" checked aria-label="自動辨識檔案下載"><span></span></label>
+        </li>
+      </ol>
+      <p class="muted small">上面三級各有上限，超過就照下一級處理，所以視訊通話不會把遊戲擠掉，下載也不會完全停住。認不出來的流量算在「影片串流」這一級。已經認出是影片串流的連線，不會因為流量大被降成檔案下載。</p>
+      <p class="muted small">服務是靠路由器的 DNS 認出來的。裝置若使用加密 DNS（例如瀏覽器內建的 DoH），就只能靠封包特徵判斷，準確度較低；這時可以用下方的裝置設定指定。</p>
     </div>
 
     <div class="card">
-      <h2>服務與流量規則</h2>
-      <div class="svc">
-        <div><div class="nm">遊戲連線與語音</div><div class="ds">Discord、PlayStation Network、Xbox Live、Steam 遊戲連線</div></div>
-        <span class="cls hi">優先</span><label class="switch sm"><input type="checkbox" id="svc-game" checked aria-label="遊戲連線與語音規則"><span></span></label>
-        <div><div class="nm">視訊會議</div><div class="ds">Google Meet、Microsoft Teams、Zoom</div></div>
-        <span class="cls hi">優先</span><label class="switch sm"><input type="checkbox" id="svc-meet" checked aria-label="視訊會議規則"><span></span></label>
-        <div><div class="nm">遊戲與系統更新</div><div class="ds">Steam 下載、PlayStation 更新、Windows Update</div></div>
-        <span class="cls lo">背景</span><label class="switch sm"><input type="checkbox" id="svc-update" checked aria-label="遊戲與系統更新規則"><span></span></label>
-        <div><div class="nm">長時間大流量自動讓路</div><div class="ds">單一連線傳超過 10 MB、封包又都很大，就自動改成背景</div></div>
-        <span class="cls lo">背景</span><label class="switch sm"><input type="checkbox" id="svc-bulk" checked aria-label="大流量自動讓路"><span></span></label>
+      <div class="card-head"><h2>裝置</h2><span class="muted small">依 MAC 位址辨識，換 IP 也認得</span></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>裝置</th><th>廠牌</th><th>目前用量</th><th>流量怎麼歸類</th></tr></thead>
+          <tbody>
+            <tr><td><div class="dev"><b>PS5<span class="tag">遊戲主機</span></b><span class="muted small mono">78:C8:81:··:··:12</span></div></td><td>Sony</td><td class="num">0.4 Mbps</td>
+              <td><select id="dev-ps5" aria-label="PS5 流量歸類"><option value="auto" selected>依流量判斷</option><option value="game">全部當線上遊戲</option><option value="bulk">全部當檔案下載</option></select><div class="why">遊戲主機：遊戲連線歸「線上遊戲」，更新照樣歸「檔案下載」</div></td></tr>
+            <tr><td><div class="dev"><b>書房桌機</b><span class="muted small mono">04:42:1A:··:··:7E</span></div></td><td>ASUSTek</td><td class="num">186 Mbps</td>
+              <td><select id="dev-pc" aria-label="書房桌機流量歸類"><option value="auto" selected>依流量判斷</option><option value="game">全部當線上遊戲</option><option value="bulk">全部當檔案下載</option></select></td></tr>
+            <tr><td><div class="dev"><b>客廳電視</b><span class="muted small mono">F0:B3:EC:··:··:03</span></div></td><td>Apple</td><td class="num">24 Mbps</td>
+              <td><select id="dev-tv" aria-label="客廳電視流量歸類"><option value="auto" selected>依流量判斷</option><option value="game">全部當線上遊戲</option><option value="bulk">全部當檔案下載</option></select></td></tr>
+            <tr><td><div class="dev"><b>NAS</b><span class="muted small mono">00:11:32:··:··:9A</span></div></td><td>Synology</td><td class="num">31 Mbps</td>
+              <td><select id="dev-nas" aria-label="NAS 流量歸類"><option value="auto">依流量判斷</option><option value="game">全部當線上遊戲</option><option value="bulk" selected>全部當檔案下載</option></select><div class="why">備份與同步不急</div></td></tr>
+            <tr><td><div class="dev"><b>手機（iPhone）</b><span class="muted small mono">隨機 MAC</span></div></td><td class="muted">無法辨識</td><td class="num">1.2 Mbps</td>
+              <td><select id="dev-phone" aria-label="手機流量歸類"><option value="auto" selected>依流量判斷</option><option value="game">全部當線上遊戲</option><option value="bulk">全部當檔案下載</option></select><div class="why">手機開了隨機 MAC，重連後可能變成新裝置</div></td></tr>
+          </tbody>
+        </table>
       </div>
-      <p class="muted small">服務規則靠路由器的 DNS 判斷。裝置若使用加密 DNS（例如瀏覽器內建的 DoH），這類規則對它無效，請改用上方的裝置優先順序。</p>
     </div>
 
     <div class="grid2">
@@ -631,7 +650,7 @@ const PARAMS = [
   {k:'up', name:'上傳頻寬', auto:()=> upRateNow+'Mbit', why:'自動調速中'},
   {k:'overhead', name:'overhead', auto:()=> '46', why:'乙太網路 38＋PPPoE 8'},
   {k:'mpu', name:'mpu', auto:()=> '84', why:'乙太網路最小訊框'},
-  {k:'diffserv', name:'優先級分組', auto:()=> 'diffserv4', why:'四級：背景／一般／影音／即時'},
+  {k:'diffserv', name:'優先級分組', auto:()=> 'diffserv4', why:'電話視訊→Voice、線上遊戲→Video、影片串流→Best Effort、檔案下載→Bulk'},
   {k:'iso_up', name:'上傳公平方式', auto:()=> 'dual-srchost nat', why:'先在裝置間平分，再在連線間平分'},
   {k:'iso_dn', name:'下載公平方式', auto:()=> 'dual-dsthost nat', why:'同上，看目的地裝置'},
   {k:'rtt', name:'rtt', auto:()=> '100ms', why:'一般網際網路預設'},
@@ -785,6 +804,7 @@ function draw(){
     : `網路忙的時候，延遲多了 <b class="num">${pp.toFixed(1)} ms</b>，視訊和遊戲可能會感覺到卡頓。`;
 }
 function tick(){
+  if(document.visibilityState==='hidden') return; // 頁面不在前景就不輪詢
   const s=sample();
   // 極簡版 autorate：多數樣本超過門檻且下載負載高 → 降速；長時間正常且滿載 → 慢慢升回
   const th=parseFloat(eff('thresh'))||15, recent=lat.slice(-5).concat(s.l);
