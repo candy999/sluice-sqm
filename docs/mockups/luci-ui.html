@@ -1,0 +1,784 @@
+<title>Sluice SQM 介面草稿</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: LuCI 外框（深色頂欄＋淺色內容）裡的設定頁；總覽用兩欄卡片格線，手機收成一欄。
+   字型刻意只用系統字：真實 LuCI 跑在離線路由器上，不能載入網路字型。 */
+:root{
+  --bg:#eef2f3; --surface:#ffffff; --sunk:#f4f7f8; --fg:#172327; --muted:#56676d; --line:#d5dee1;
+  --chrome:#16242a; --chrome-fg:#dfe9ec; --chrome-muted:#8fa5ac;
+  --accent:#0a6c80; --accent-strong:#085566; --accent-soft:#dcf0f3; --on-accent:#ffffff;
+  --down:#0a6c80; --up:#6247c9;
+  --good:#23794a; --good-soft:#e1f2e8; --warn:#9a5f0a; --warn-soft:#fbefd8; --bad:#b42828; --bad-soft:#fae3e3;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --r:8px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f171a; --surface:#162125; --sunk:#111b1e; --fg:#e3ecee; --muted:#93a7ad; --line:#2a3a3f;
+  --chrome:#0a1114; --chrome-fg:#dfe9ec; --chrome-muted:#7f959c;
+  --accent:#3fb3c8; --accent-strong:#6cc8d8; --accent-soft:#143840; --on-accent:#06262d;
+  --down:#3fb3c8; --up:#a08cf0;
+  --good:#5cc98a; --good-soft:#15301f; --warn:#e0a640; --warn-soft:#33270f; --bad:#f07171; --bad-soft:#3a1717;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0f171a; --surface:#162125; --sunk:#111b1e; --fg:#e3ecee; --muted:#93a7ad; --line:#2a3a3f;
+  --chrome:#0a1114; --chrome-fg:#dfe9ec; --chrome-muted:#7f959c;
+  --accent:#3fb3c8; --accent-strong:#6cc8d8; --accent-soft:#143840; --on-accent:#06262d;
+  --down:#3fb3c8; --up:#a08cf0;
+  --good:#5cc98a; --good-soft:#15301f; --warn:#e0a640; --warn-soft:#33270f; --bad:#f07171; --bad-soft:#3a1717;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px;line-height:1.6}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--chrome)}
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.3}
+h1{font-size:1.75rem;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.06rem;font-weight:650}
+p{margin:0}
+small,.small{font-size:.86em}
+.muted{color:var(--muted)}
+.num,.mono{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:.92em}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* LuCI chrome */
+.chrome{background:var(--chrome);color:var(--chrome-fg);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.chrome-in{display:flex;align-items:center;gap:20px;min-height:48px;padding-block:0}
+.brand{font-weight:700;letter-spacing:.02em}
+.menu{display:flex;gap:4px;overflow-x:auto;min-width:0}
+.menu span{padding:6px 10px;border-radius:6px;color:var(--chrome-muted);white-space:nowrap}
+.menu span.on{color:var(--chrome-fg);background:rgba(255,255,255,.08)}
+.crumb{margin-left:auto;color:var(--chrome-muted);font-size:.86em;white-space:nowrap}
+@media (max-width:640px){.crumb{display:none}}
+
+.page{padding-block:20px 120px;display:grid;gap:16px}
+.mock-note{background:var(--warn-soft);color:var(--warn);border-radius:var(--r);padding:8px 12px;font-size:.9em}
+.page-head{display:grid;gap:4px}
+.lede{color:var(--muted)}
+
+/* tabs, LuCI cbi-tabmenu 風格 */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{appearance:none;background:none;border:0;border-bottom:3px solid transparent;padding:10px 16px;cursor:pointer;color:var(--muted);white-space:nowrap;font-weight:600}
+.tab:hover{color:var(--fg)}
+.tab[aria-selected="true"]{color:var(--accent-strong);border-bottom-color:var(--accent)}
+.tabpanel{display:grid;gap:16px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:grid;gap:12px;min-width:0}
+.card-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:16px}
+@media (max-width:900px){.grid3{grid-template-columns:1fr 1fr}.grid3>:last-child{grid-column:1/-1}}
+@media (max-width:720px){.grid2,.grid3{grid-template-columns:1fr}.grid3>:last-child{grid-column:auto}}
+
+/* pills */
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-weight:600;font-size:.88em;width:max-content}
+.pill i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.off{background:var(--sunk);color:var(--muted)}
+
+/* hero */
+.hero{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:760px){.hero{grid-template-columns:1fr}}
+.hero-main{display:grid;gap:10px}
+.score{display:flex;align-items:baseline;gap:8px}
+.score-num{font-size:3.4rem;font-weight:750;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.score-of{color:var(--muted);font-weight:600}
+.score-text{font-size:1.06rem}
+.hero-stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin:0}
+.hero-stats>div{background:var(--sunk);padding:12px 14px;display:grid;gap:2px;min-width:0}
+.hero-stats dt{color:var(--muted);font-size:.84em;letter-spacing:.02em}
+.hero-stats dd{margin:0;font-size:1.3rem;font-weight:700;font-variant-numeric:tabular-nums}
+.hero-stats dd small{font-size:.62em;color:var(--muted);font-weight:600}
+.hint{color:var(--muted);font-size:.8em}
+
+.notice{display:flex;gap:12px;align-items:flex-start;border-radius:var(--r);padding:12px 14px;background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent)}
+.notice p{flex:1;min-width:0}
+.notice.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+
+/* charts */
+.chart{width:100%;height:auto;display:block}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .tick{fill:var(--muted);font-size:11px;font-family:var(--font)}
+.chart .thresh{stroke:var(--warn);stroke-width:1.2;stroke-dasharray:3 3}
+.chart .thresh-label{fill:var(--warn);font-size:11px;font-family:var(--font)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:.84em}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:3px;border-radius:2px;display:inline-block}
+.sw.dash{background:none!important;border-top:2px dashed}
+.chart-foot{display:flex;gap:16px;flex-wrap:wrap;font-size:.9em}
+.chart-foot b{font-variant-numeric:tabular-nums}
+
+/* definition list */
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 16px;margin:0}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+
+/* ladder */
+.ladder{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.ladder li{display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;align-items:start;padding:8px 10px;border-radius:6px;border:1px solid transparent}
+.ladder .lv{font-weight:700;font-family:var(--mono);color:var(--muted);padding-top:1px}
+.ladder .t{font-weight:600}
+.ladder .d{color:var(--muted);font-size:.86em}
+.ladder li.cur{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+.ladder li.cur .lv{color:var(--accent-strong)}
+.ladder li.cur.lvl-warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+.ladder li.cur.lvl-warn .lv{color:var(--warn)}
+.ladder li.past{opacity:.55}
+
+/* log */
+.log{list-style:none;margin:0;padding:0;display:grid;gap:10px;max-height:300px;overflow:auto}
+.log li{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;font-size:.92em}
+.log time{color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* switch */
+.switch{position:relative;display:inline-block;width:52px;height:30px;flex:none}
+.switch input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.switch span{position:absolute;inset:0;border-radius:999px;background:var(--line);transition:background .15s}
+.switch span::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.switch input:checked+span{background:var(--accent)}
+.switch input:checked+span::after{transform:translateX(22px)}
+.switch input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.switch.sm{width:42px;height:24px}
+.switch.sm span::after{width:18px;height:18px}
+.switch.sm input:checked+span::after{transform:translateX(18px)}
+.row-switch{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.row-switch>div{display:grid;gap:4px;min-width:0}
+.big-switch h2{font-size:1.25rem}
+
+/* segmented */
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.seg label{position:relative;cursor:pointer;text-align:center;padding:10px 8px;border-left:1px solid var(--line);font-weight:600;color:var(--muted)}
+.seg label:first-child{border-left:0}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:var(--accent);color:var(--on-accent)}
+.seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:-4px}
+.seg-desc{background:var(--sunk);border-radius:6px;padding:10px 12px}
+
+/* presets */
+.presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:640px){.presets{grid-template-columns:1fr}}
+.preset{position:relative;border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;cursor:pointer;display:grid;gap:4px;background:var(--surface)}
+.preset input{position:absolute;opacity:0;pointer-events:none}
+.preset .pt{font-weight:650}
+.preset .pd{color:var(--muted);font-size:.88em}
+.preset:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft)}
+.preset:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+
+/* buttons, LuCI cbi-button 對應 */
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:7px 14px;cursor:pointer;font-weight:600;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{background:var(--accent-strong);border-color:var(--accent-strong)}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,transparent)}
+.btn.link{border-color:transparent;background:none;color:var(--accent-strong);padding-inline:4px}
+.btn.sm{padding:4px 10px;font-size:.88em}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* calibration */
+.confirm{border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);background:var(--warn-soft);border-radius:var(--r);padding:12px 14px;display:grid;gap:10px}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.steps li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:8px;align-items:center;color:var(--muted)}
+.steps li .ic{width:16px;height:16px;border-radius:50%;border:2px solid var(--line)}
+.steps li.done{color:var(--fg)}
+.steps li.done .ic{background:var(--good);border-color:var(--good)}
+.steps li.run{color:var(--fg);font-weight:600}
+.steps li.run .ic{border-color:var(--accent);border-top-color:transparent;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.bar{height:6px;border-radius:999px;background:var(--line);overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.result{background:var(--good-soft);border-radius:var(--r);padding:12px 14px}
+
+/* forms */
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+@media (max-width:560px){.fields{grid-template-columns:1fr}}
+.field{display:grid;gap:4px;min-width:0}
+.field label{font-weight:600;font-size:.92em}
+.input-unit{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden}
+.input-unit input{border:0;background:none;padding:7px 10px;min-width:0;flex:1;font-variant-numeric:tabular-nums}
+.input-unit span{padding:7px 10px;background:var(--sunk);color:var(--muted);border-left:1px solid var(--line)}
+.input-unit:focus-within{border-color:var(--accent)}
+.input-unit input:focus-visible{outline:none}
+select,.txt{border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:6px 8px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.range-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:.84em}
+
+/* tables */
+.tbl-wrap{overflow-x:auto;margin-inline:-4px}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.82em;color:var(--muted);font-weight:600;letter-spacing:.03em;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.dev{display:grid;gap:1px}
+.dev b{font-weight:600}
+.tag{display:inline-block;font-size:.76em;padding:1px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent-strong);font-weight:600;margin-left:4px;vertical-align:1px}
+.svc{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px 14px;align-items:center}
+.svc .nm{font-weight:600}
+.svc .ds{color:var(--muted);font-size:.86em}
+.cls{font-size:.8em;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.cls.hi{background:var(--good-soft);color:var(--good)}
+.cls.lo{background:var(--sunk);color:var(--muted);border:1px solid var(--line)}
+.cls.mid{background:var(--accent-soft);color:var(--accent-strong)}
+
+.ovr{width:130px}
+.eff{font-family:var(--mono);font-size:.9em}
+.eff.changed{color:var(--warn);font-weight:700}
+.why{color:var(--muted);font-size:.82em}
+pre.cmd{margin:0;background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto;font-family:var(--mono);font-size:.84em;line-height:1.7;white-space:pre}
+
+/* save bar */
+.savebar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.08);padding-bottom:env(safe-area-inset-bottom,0px)}
+.savebar .wrap{display:flex;align-items:center;gap:12px;padding-block:10px;flex-wrap:wrap}
+.savebar p{flex:1;min-width:180px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:7;font-weight:600;max-width:calc(100% - 32px)}
+footer.foot{color:var(--muted);font-size:.84em;text-align:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header class="chrome">
+  <div class="wrap chrome-in">
+    <span class="brand">OpenWrt</span>
+    <nav class="menu" aria-label="LuCI 主選單（示意）">
+      <span>狀態</span><span>系統</span><span class="on">服務</span><span>網路</span><span>登出</span>
+    </nav>
+    <span class="crumb">服務 › Sluice SQM</span>
+  </div>
+</header>
+
+<main class="wrap page">
+  <div class="mock-note">介面樣式草稿。圖表與數字是模擬資料，按鈕都能點，但不會改到任何設定。</div>
+
+  <div class="page-head">
+    <h1>Sluice SQM</h1>
+    <p class="lede">自動流量塑型。打開就能用，家裡有人在下載時，打電動和視訊也不會卡。</p>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Sluice SQM 分頁">
+    <button class="tab" role="tab" id="t-overview" data-tab="overview" aria-controls="overview">總覽</button>
+    <button class="tab" role="tab" id="t-general" data-tab="general" aria-controls="general">一般</button>
+    <button class="tab" role="tab" id="t-advanced" data-tab="advanced" aria-controls="advanced">進階</button>
+    <button class="tab" role="tab" id="t-expert" data-tab="expert" aria-controls="expert">專家</button>
+  </div>
+
+  <!-- ================= 總覽 ================= -->
+  <section class="tabpanel" id="overview" role="tabpanel" aria-labelledby="t-overview">
+    <div class="card hero">
+      <div class="hero-main">
+        <span class="pill good" id="state-pill"><i></i><span id="state-text">運作中</span></span>
+        <div class="score"><span class="score-num" id="score">92</span><span class="score-of">/ 100 延遲品質</span></div>
+        <p class="score-text" id="score-text">網路忙的時候，延遲只多 <b class="num">3.1 ms</b>，打電動、視訊會議都不會卡。</p>
+        <p class="muted small">校準時實測：如果不塑型，滿載會多 38 ms。分數取自過去 24 小時有人在用網路時的延遲，不會為了打分數另外把線路塞滿。</p>
+      </div>
+      <dl class="hero-stats">
+        <div><dt>下載上限</dt><dd><span id="st-down">470</span> <small>Mbps</small></dd><span class="hint">自動調整中 · 校準值 486</span></div>
+        <div><dt>上傳上限</dt><dd><span id="st-up">478</span> <small>Mbps</small></dd><span class="hint">自動調整中 · 校準值 492</span></div>
+        <div><dt>閒置延遲</dt><dd>4.2 <small>ms</small></dd><span class="hint">4 個測點的中位數</span></div>
+        <div><dt>CPU 保護</dt><dd id="st-cpu">L0 完整</dd><span class="hint" id="st-cpu-hint">最忙的核心 38%</span></div>
+      </dl>
+    </div>
+
+    <div class="notice" id="offload-notice">
+      <p><b>已自動關閉硬體 flow offloading。</b> 它會讓封包直接繞過塑型，開著的話 Sluice 等於沒有作用。關閉後轉送改由 CPU 處理，目前負載還有餘裕。</p>
+      <button class="btn sm" type="button" id="offload-dismiss">知道了</button>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-head"><h2>延遲</h2><span class="muted small">近 10 分鐘 · 每 5 秒</span></div>
+        <svg class="chart" id="chart-lat" viewBox="0 0 640 200" role="img" aria-label="延遲增量折線圖"></svg>
+        <div class="legend">
+          <span><i class="sw" style="background:var(--down)"></i>比閒置多出的延遲</span>
+          <span><i class="sw dash" style="border-color:var(--warn)"></i>降速門檻</span>
+        </div>
+        <div class="chart-foot"><span>現在 <b id="lat-now">2.1</b> ms</span><span>p95 <b id="lat-p95">4.8</b> ms</span><span class="muted">單位：毫秒</span></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>頻寬</h2><span class="muted small">近 10 分鐘 · 每 5 秒</span></div>
+        <svg class="chart" id="chart-bw" viewBox="0 0 640 200" role="img" aria-label="上下行實際流量與塑型上限折線圖"></svg>
+        <div class="legend">
+          <span><i class="sw" style="background:var(--down)"></i>下載</span>
+          <span><i class="sw dash" style="border-color:var(--down)"></i>下載上限</span>
+          <span><i class="sw" style="background:var(--up)"></i>上傳</span>
+          <span><i class="sw dash" style="border-color:var(--up)"></i>上傳上限</span>
+        </div>
+        <div class="chart-foot"><span>下載 <b id="bw-dn">212</b> Mbps</span><span>上傳 <b id="bw-up">38</b> Mbps</span><span class="muted">單位：Mbps</span></div>
+      </div>
+    </div>
+
+    <div class="grid3">
+      <div class="card">
+        <h2>線路偵測</h2>
+        <dl class="kv">
+          <dt>WAN</dt><dd class="mono">pppoe-wan</dd>
+          <dt>連線方式</dt><dd>PPPoE · 光纖 <span class="muted">（推測）</span></dd>
+          <dt>封包額外開銷</dt><dd><span class="num">46</span> bytes <span class="muted">＝乙太網路 38＋PPPoE 8</span></dd>
+          <dt>最小封包</dt><dd><span class="num">84</span> bytes</dd>
+          <dt>測點</dt><dd class="mono">168.95.1.1、1.1.1.1、8.8.8.8、9.9.9.9</dd>
+          <dt>自動調速</dt><dd>開啟 <span class="muted">· 用來處理晚間尖峰</span></dd>
+          <dt>路由器</dt><dd>Filogic 830 · 4 核 <span class="muted">（範例）</span></dd>
+        </dl>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>CPU 保護檔位</h2><span class="muted small">太忙時一檔一檔降</span></div>
+        <ol class="ladder" id="ladder-ov"></ol>
+      </div>
+      <div class="card">
+        <h2>最近發生的事</h2>
+        <ul class="log" id="log"></ul>
+      </div>
+    </div>
+  </section>
+
+  <form id="cfg" autocomplete="off">
+  <!-- ================= 一般 ================= -->
+  <section class="tabpanel" id="general" role="tabpanel" aria-labelledby="t-general" hidden>
+    <div class="card row-switch big-switch">
+      <div>
+        <h2>啟用 Sluice SQM</h2>
+        <p class="muted">關掉後網路回到不塑型的全速狀態，設定都會保留。</p>
+      </div>
+      <label class="switch" title="啟用 Sluice SQM"><input type="checkbox" id="en" checked aria-label="啟用 Sluice SQM"><span></span></label>
+    </div>
+
+    <div class="card">
+      <h2>你比較在意什麼？</h2>
+      <div class="seg" role="radiogroup" aria-label="頻寬與延遲的取捨">
+        <label><input type="radio" name="tradeoff" id="tr-bw" value="throughput">頻寬優先</label>
+        <label><input type="radio" name="tradeoff" id="tr-bal" value="balanced" checked>平衡</label>
+        <label><input type="radio" name="tradeoff" id="tr-lat" value="latency">延遲優先</label>
+      </div>
+      <p class="seg-desc" id="trade-desc"></p>
+    </div>
+
+    <div class="card">
+      <h2>家裡主要怎麼用網路？</h2>
+      <div class="presets">
+        <label class="preset"><input type="radio" name="preset" id="pr-general" value="general" checked><span class="pt">一般上網</span><span class="pd">影音、網頁、下載都照顧到，誰都不會被餓死。</span></label>
+        <label class="preset"><input type="radio" name="preset" id="pr-gaming" value="gaming"><span class="pt">打電動</span><span class="pd">遊戲主機與遊戲連線最優先，大型下載自動讓路。</span></label>
+        <label class="preset"><input type="radio" name="preset" id="pr-meet" value="conference"><span class="pt">視訊會議</span><span class="pd">Meet、Teams、Zoom 的聲音與畫面最優先，上傳保留餘量。</span></label>
+      </div>
+    </div>
+
+    <div class="card" id="calib-card">
+      <div class="card-head"><h2>頻寬校準</h2><span class="pill good" id="calib-pill"><i></i>已校準</span></div>
+      <p id="calib-summary">今天 03:15 校準：下載 <b class="num">486</b>、上傳 <b class="num">492</b> Mbps，滿載時延遲多 <b class="num">38</b> ms，所以決定啟用塑型。</p>
+      <div class="actions" id="calib-actions">
+        <button class="btn" type="button" id="calib-btn">重新校準</button>
+        <button class="btn link" type="button" id="learn-btn">改用自動學習，不校準</button>
+      </div>
+
+      <div class="confirm" id="calib-confirm" hidden>
+        <p><b>校準大約需要 3 分鐘，這段時間網路會被塞滿。</b> 線上遊戲、視訊會議可能斷線，建議沒人在用網路時再跑。會連到 Cloudflare 的測速伺服器。</p>
+        <div class="actions">
+          <button class="btn primary" type="button" id="calib-go">開始校準</button>
+          <button class="btn" type="button" id="calib-cancel">取消</button>
+        </div>
+      </div>
+
+      <div id="calib-run" hidden>
+        <div style="display:grid;gap:10px">
+          <ol class="steps" id="calib-steps"></ol>
+          <div class="bar"><i id="calib-bar"></i></div>
+          <p class="muted small">示意畫面已加速 15 倍。真實校準約 3 分鐘。</p>
+        </div>
+      </div>
+
+      <div class="confirm" id="learn-confirm" hidden>
+        <p><b>不校準，讓 Sluice 自己學。</b> 從線路的最高速度開始，只在有人大量使用網路時慢慢往下試探：降速後延遲變好，就停在那裡；一路降下去延遲都沒改善，代表塞車點不在你家這段線路，就把速度升回去。通常要幾天的正常使用才會穩定，這段期間效果比校準差一些。</p>
+        <div class="actions">
+          <button class="btn primary" type="button" id="learn-go">改用自動學習</button>
+          <button class="btn" type="button" id="learn-cancel">取消</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 進階 ================= -->
+  <section class="tabpanel" id="advanced" role="tabpanel" aria-labelledby="t-advanced" hidden>
+    <div class="card">
+      <div class="card-head"><h2>裝置優先順序</h2><span class="muted small">依 MAC 位址辨識，換 IP 也認得</span></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>裝置</th><th>廠牌</th><th>目前用量</th><th>優先順序</th></tr></thead>
+          <tbody>
+            <tr><td><div class="dev"><b>PS5<span class="tag">遊戲主機</span></b><span class="muted small mono">78:C8:81:··:··:12</span></div></td><td>Sony</td><td class="num">0.4 Mbps</td>
+              <td><select id="dev-ps5" aria-label="PS5 優先順序"><option value="hi" selected>優先</option><option value="mid">一般</option><option value="lo">背景</option></select><div class="why">依廠牌自動判斷</div></td></tr>
+            <tr><td><div class="dev"><b>書房桌機</b><span class="muted small mono">04:42:1A:··:··:7E</span></div></td><td>ASUSTek</td><td class="num">186 Mbps</td>
+              <td><select id="dev-pc" aria-label="書房桌機優先順序"><option value="hi">優先</option><option value="mid" selected>一般</option><option value="lo">背景</option></select></td></tr>
+            <tr><td><div class="dev"><b>客廳電視</b><span class="muted small mono">F0:B3:EC:··:··:03</span></div></td><td>Apple</td><td class="num">24 Mbps</td>
+              <td><select id="dev-tv" aria-label="客廳電視優先順序"><option value="hi">優先</option><option value="mid" selected>一般</option><option value="lo">背景</option></select></td></tr>
+            <tr><td><div class="dev"><b>NAS</b><span class="muted small mono">00:11:32:··:··:9A</span></div></td><td>Synology</td><td class="num">31 Mbps</td>
+              <td><select id="dev-nas" aria-label="NAS 優先順序"><option value="hi">優先</option><option value="mid">一般</option><option value="lo" selected>背景</option></select><div class="why">備份與同步不急</div></td></tr>
+            <tr><td><div class="dev"><b>手機（iPhone）</b><span class="muted small mono">隨機 MAC</span></div></td><td class="muted">無法辨識</td><td class="num">1.2 Mbps</td>
+              <td><select id="dev-phone" aria-label="手機優先順序"><option value="hi">優先</option><option value="mid" selected>一般</option><option value="lo">背景</option></select><div class="why">手機開了隨機 MAC，重連後可能變成新裝置</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>服務與流量規則</h2>
+      <div class="svc">
+        <div><div class="nm">遊戲連線與語音</div><div class="ds">Discord、PlayStation Network、Xbox Live、Steam 遊戲連線</div></div>
+        <span class="cls hi">優先</span><label class="switch sm"><input type="checkbox" id="svc-game" checked aria-label="遊戲連線與語音規則"><span></span></label>
+        <div><div class="nm">視訊會議</div><div class="ds">Google Meet、Microsoft Teams、Zoom</div></div>
+        <span class="cls hi">優先</span><label class="switch sm"><input type="checkbox" id="svc-meet" checked aria-label="視訊會議規則"><span></span></label>
+        <div><div class="nm">遊戲與系統更新</div><div class="ds">Steam 下載、PlayStation 更新、Windows Update</div></div>
+        <span class="cls lo">背景</span><label class="switch sm"><input type="checkbox" id="svc-update" checked aria-label="遊戲與系統更新規則"><span></span></label>
+        <div><div class="nm">長時間大流量自動讓路</div><div class="ds">單一連線傳超過 10 MB、封包又都很大，就自動改成背景</div></div>
+        <span class="cls lo">背景</span><label class="switch sm"><input type="checkbox" id="svc-bulk" checked aria-label="大流量自動讓路"><span></span></label>
+      </div>
+      <p class="muted small">服務規則靠路由器的 DNS 判斷。裝置若使用加密 DNS（例如瀏覽器內建的 DoH），這類規則對它無效，請改用上方的裝置優先順序。</p>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h2>頻寬範圍</h2>
+        <p class="muted small">留空就是自動。自動調速只會在這個範圍內調整。</p>
+        <div class="fields">
+          <div class="field"><label for="dn-max">下載最高</label><div class="input-unit"><input id="dn-max" inputmode="numeric" placeholder="自動（486）"><span>Mbps</span></div></div>
+          <div class="field"><label for="dn-min">下載最低</label><div class="input-unit"><input id="dn-min" inputmode="numeric" placeholder="自動（243）"><span>Mbps</span></div></div>
+          <div class="field"><label for="up-max">上傳最高</label><div class="input-unit"><input id="up-max" inputmode="numeric" placeholder="自動（492）"><span>Mbps</span></div></div>
+          <div class="field"><label for="up-min">上傳最低</label><div class="input-unit"><input id="up-min" inputmode="numeric" placeholder="自動（246）"><span>Mbps</span></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>自動調速反應</h2>
+        <input type="range" id="sens" min="1" max="5" step="1" value="3" aria-label="自動調速反應速度">
+        <div class="range-labels"><span>穩定</span><span>靈敏</span></div>
+        <p class="seg-desc" id="sens-desc"></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-switch">
+        <div>
+          <h2>CPU 保護</h2>
+          <p class="muted">路由器 CPU 忙不過來時，塑型反而會讓網路變慢。開啟後，任一核心處理封包的時間超過 90% 持續 5 秒，就降一檔；CPU 回穩 10 分鐘後再試著升回一檔。</p>
+        </div>
+        <label class="switch"><input type="checkbox" id="cpu-guard" checked aria-label="CPU 保護"><span></span></label>
+      </div>
+      <ol class="ladder" id="ladder-adv"></ol>
+      <div class="actions">
+        <button class="btn" type="button" id="cpu-demo">示範：模擬 CPU 過載</button>
+        <span class="muted small">會在總覽的檔位與事件紀錄裡看到變化</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 專家 ================= -->
+  <section class="tabpanel" id="expert" role="tabpanel" aria-labelledby="t-expert" hidden>
+    <div class="notice warn">
+      <p><b>這裡填的值會蓋掉自動判斷。</b> 被覆寫的項目不再自動調整，填錯可能讓網路比不塑型還慢。留空就回到自動。</p>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>CAKE 與自動調速參數</h2><span class="muted small">橘色是你覆寫過的值</span></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>參數</th><th>自動算出</th><th>你的設定</th><th>實際生效</th></tr></thead>
+          <tbody id="expert-rows"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>實際執行的指令</h2><button class="btn sm" type="button" id="copy-cmd">複製</button></div>
+      <pre class="cmd" id="cmd"></pre>
+    </div>
+  </section>
+  </form>
+
+  <footer class="foot">Sluice SQM 0.1.0（樣式草稿）· 狀態資料由 sluice daemon 提供</footer>
+</main>
+
+<div class="savebar" id="savebar" hidden>
+  <div class="wrap">
+    <p><b id="dirty-n">1</b> 項變更還沒套用</p>
+    <button class="btn" type="button" id="reset-btn">重設</button>
+    <button class="btn primary" type="button" id="apply-btn">儲存並套用</button>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+
+/* ---------- tabs (hash routing) ---------- */
+const TABS = ['overview','general','advanced','expert'];
+function showTab(name){
+  if(!TABS.includes(name)) name='overview';
+  TABS.forEach(t=>{
+    $('#'+t).hidden = t!==name;
+    $('#t-'+t).setAttribute('aria-selected', t===name);
+  });
+}
+$$('.tab').forEach(b=>b.addEventListener('click',()=>{ location.hash=b.dataset.tab; showTab(b.dataset.tab); }));
+window.addEventListener('hashchange',()=>showTab(location.hash.slice(1)));
+showTab(location.hash.slice(1));
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,2600); }
+
+/* ---------- event log ---------- */
+const now = new Date();
+const hhmm = d => String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+const ago = m => hhmm(new Date(now - m*60000));
+const initialLog = [
+  [ago(4),  '延遲回穩，下載上限維持在 470 Mbps。'],
+  [ago(19), '晚間尖峰：有人大量下載時延遲上升（6 次量測有 4 次超過 15 ms），下載上限從 486 調降到 470 Mbps。'],
+  ['03:15', '校準完成：下載 486、上傳 492 Mbps。滿載時延遲多 38 ms，決定啟用塑型。'],
+  ['03:12', '已自動關閉硬體 flow offloading，它會讓封包繞過塑型。'],
+  ['03:12', '線路偵測：PPPoE over 光纖，封包額外開銷 46 bytes。'],
+];
+function log(msg){
+  const li=document.createElement('li');
+  li.innerHTML=`<time>${hhmm(new Date())}</time><span></span>`;
+  li.lastChild.textContent=msg;
+  $('#log').prepend(li);
+}
+initialLog.slice().reverse().forEach(([t,m])=>{
+  const li=document.createElement('li'); li.innerHTML=`<time>${t}</time><span></span>`; li.lastChild.textContent=m; $('#log').prepend(li);
+});
+
+/* ---------- CPU ladder ---------- */
+const LEVELS = [
+  ['L0','完整','上下行都塑型，四級優先順序，含大流量偵測與服務規則。'],
+  ['L1','停用動態分類','保留裝置規則，關掉每個封包都要比對的服務與大流量規則。'],
+  ['L2','簡化佇列','取消四級優先與每台裝置平分頻寬，只留基本的公平排隊。'],
+  ['L3','只管上傳','停掉下載方向（最吃 CPU 的部分），下載回到全速不塑型。'],
+  ['L4','暫時停用','全部不塑型，避免越管越慢。10 分鐘後再試，之後間隔 20、40 分鐘。'],
+];
+let level=0;
+function renderLadder(){
+  for(const id of ['#ladder-ov','#ladder-adv']){
+    const ol=$(id); ol.innerHTML='';
+    LEVELS.forEach(([lv,t,d],i)=>{
+      const li=document.createElement('li');
+      if(i===level) li.className='cur'+(i>0?' lvl-warn':'');
+      else if(i<level) li.className='past';
+      li.innerHTML=`<span class="lv">${lv}</span><div><div class="t"></div><div class="d"></div></div>`;
+      li.querySelector('.t').textContent=t+(i===level?'　← 目前':'');
+      li.querySelector('.d').textContent=d;
+      ol.append(li);
+    });
+  }
+  $('#st-cpu').textContent = LEVELS[level][0]+' '+LEVELS[level][1];
+  $('#st-cpu-hint').textContent = level===0 ? '最忙的核心 38%' : level===4 ? '塑型已暫停，等 CPU 回穩' : '已降級，等 CPU 回穩後再升回';
+  const pill=$('#state-pill'), txt=$('#state-text');
+  if(!$('#en').checked){ pill.className='pill off'; txt.textContent='已關閉'; }
+  else if(level===0){ pill.className='pill good'; txt.textContent='運作中'; }
+  else if(level<4){ pill.className='pill warn'; txt.textContent='運作中 · CPU 不足已降級'; }
+  else { pill.className='pill warn'; txt.textContent='暫停中 · CPU 不足'; }
+}
+renderLadder();
+
+let demoRunning=false;
+$('#cpu-demo').addEventListener('click',async()=>{
+  if(demoRunning) return; demoRunning=true;
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  toast('開始模擬：CPU 被大量下載塞滿');
+  const reasons=['核心 2 處理封包佔 96%，持續 5 秒','降級後仍佔 94%','降級後仍佔 92%','只塑上傳仍佔 91%'];
+  for(let i=1;i<=4;i++){ await wait(1400); level=i; renderLadder(); log(`CPU 太忙（${reasons[i-1]}），降到 ${LEVELS[i][0]}「${LEVELS[i][1]}」。`); }
+  await wait(3000); log('CPU 已回穩 10 分鐘（示範縮短），試著升回一檔。');
+  for(let i=3;i>=0;i--){ await wait(1100); level=i; renderLadder(); log(`升回 ${LEVELS[i][0]}「${LEVELS[i][1]}」，CPU 負載正常。`); }
+  demoRunning=false;
+});
+
+/* ---------- tradeoff & sensitivity ---------- */
+const TRADE = {
+  throughput:{th:30, txt:'延遲門檻 30 ms。速度幾乎跑滿，偶爾會有短暫延遲。適合常備份、下載大檔的家庭。'},
+  balanced:  {th:15, txt:'延遲門檻 15 ms。保留大約 95% 的速度，日常上網與打電動都順。建議大多數人用這個。'},
+  latency:   {th:8,  txt:'延遲門檻 8 ms。多犧牲一點速度，換最穩的延遲。適合競技遊戲、直播。'},
+};
+const SENS = [
+  '很穩定：連續 8 次量測裡有 6 次超標才降速。速度變動少，但尖峰時反應較慢。',
+  '穩定：連續 6 次量測裡有 4 次超標才降速。',
+  '標準：連續 6 次量測裡有 3 次超標就降速，大約 0.5 秒內反應。',
+  '靈敏：連續 4 次量測裡有 2 次超標就降速。',
+  '很靈敏：一超標就降速。延遲最穩，但速度會比較常上下跳。',
+];
+const tradeoff = () => (document.querySelector('input[name=tradeoff]:checked')||{}).value || 'balanced';
+function renderTrade(){ $('#trade-desc').textContent = TRADE[tradeoff()].txt; }
+function renderSens(){ $('#sens-desc').textContent = SENS[$('#sens').value-1]; }
+
+/* ---------- expert table ---------- */
+const PARAMS = [
+  {k:'qdisc', name:'佇列演算法', auto:()=> 'cake', why:'CPU 足夠，用 CAKE'},
+  {k:'down', name:'下載頻寬', auto:()=> dnRateNow+'Mbit', why:'自動調速中'},
+  {k:'up', name:'上傳頻寬', auto:()=> upRateNow+'Mbit', why:'自動調速中'},
+  {k:'overhead', name:'overhead', auto:()=> '46', why:'乙太網路 38＋PPPoE 8'},
+  {k:'mpu', name:'mpu', auto:()=> '84', why:'乙太網路最小訊框'},
+  {k:'diffserv', name:'優先級分組', auto:()=> 'diffserv4', why:'四級：背景／一般／影音／即時'},
+  {k:'iso_up', name:'上傳公平方式', auto:()=> 'dual-srchost nat', why:'先在裝置間平分，再在連線間平分'},
+  {k:'iso_dn', name:'下載公平方式', auto:()=> 'dual-dsthost nat', why:'同上，看目的地裝置'},
+  {k:'rtt', name:'rtt', auto:()=> '100ms', why:'一般網際網路預設'},
+  {k:'ack', name:'ACK 過濾（上傳）', auto:()=> 'no-ack-filter', why:'上下行對稱，不需要'},
+  {k:'thresh', name:'降速門檻', auto:()=> TRADE[tradeoff()].th+'ms', why:'來自「一般」分頁的取捨'},
+  {k:'interval', name:'量測間隔', auto:()=> '150ms', why:'4 個測點輪流'},
+];
+function buildExpert(){
+  const tb=$('#expert-rows');
+  PARAMS.forEach(p=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><b></b><div class="why mono"></div></td><td><span class="mono auto"></span><div class="why"></div></td>
+      <td><input class="txt ovr mono" id="ov-${p.k}" aria-label="${p.name} 覆寫值"></td><td class="eff" id="ef-${p.k}"></td>`;
+    tr.querySelector('b').textContent=p.name;
+    tr.querySelector('.why.mono').textContent=p.k;
+    tr.children[1].querySelector('.why').textContent=p.why;
+    tb.append(tr);
+  });
+}
+function eff(k){ const p=PARAMS.find(x=>x.k===k); const v=$('#ov-'+k).value.trim(); return v||p.auto(); }
+function renderExpert(){
+  PARAMS.forEach(p=>{
+    const row=$('#ov-'+p.k).closest('tr');
+    row.querySelector('.auto').textContent=p.auto();
+    $('#ov-'+p.k).placeholder='自動';
+    const e=$('#ef-'+p.k); const changed=!!$('#ov-'+p.k).value.trim();
+    e.textContent=eff(p.k); e.className='eff'+(changed?' changed':'');
+  });
+  const q=eff('qdisc'), common=`overhead ${eff('overhead')} mpu ${eff('mpu')} rtt ${eff('rtt')}`;
+  $('#cmd').textContent =
+`# 上傳（WAN 出口）
+tc qdisc replace dev pppoe-wan root ${q} bandwidth ${eff('up')} ${eff('diffserv')} ${eff('iso_up')} ${common} ${eff('ack')}
+
+# 下載（WAN 入口 → 還原 DSCP → 轉到 IFB）
+ip link add ifb4pppoe-wan type ifb && ip link set ifb4pppoe-wan up
+tc qdisc replace dev pppoe-wan handle ffff: ingress
+tc filter add dev pppoe-wan parent ffff: matchall \\
+    action ctinfo dscp 0xfc000000 0x01000000 \\
+    action mirred egress redirect dev ifb4pppoe-wan
+tc qdisc replace dev ifb4pppoe-wan root ${q} bandwidth ${eff('down')} ${eff('diffserv')} ${eff('iso_dn')} ingress ${common}
+
+# 自動調速：門檻 ${eff('thresh')}，每 ${eff('interval')} 量測一次；只改 bandwidth，經 netlink 直接下，不重建佇列`;
+}
+$('#copy-cmd').addEventListener('click',()=>{
+  const text=$('#cmd').textContent;
+  const sel=()=>{ const r=document.createRange(); r.selectNodeContents($('#cmd')); const s=getSelection(); s.removeAllRanges(); s.addRange(r); toast('已選取，請按 Ctrl+C 複製'); };
+  try{ navigator.clipboard.writeText(text).then(()=>toast('已複製'),sel); }catch(e){ sel(); }
+});
+
+/* ---------- calibration ---------- */
+const PHASES=[['量測閒置延遲',30],['下載滿載',45],['上傳滿載',45],['上下行同時滿載',45],['計算結果、檢查 CPU',15]];
+function hideCalibPanels(){ ['#calib-confirm','#calib-run','#learn-confirm'].forEach(s=>$(s).hidden=true); $('#calib-actions').hidden=false; }
+$('#calib-btn').addEventListener('click',()=>{ hideCalibPanels(); $('#calib-confirm').hidden=false; $('#calib-actions').hidden=true; });
+$('#calib-cancel').addEventListener('click',hideCalibPanels);
+$('#learn-btn').addEventListener('click',()=>{ hideCalibPanels(); $('#learn-confirm').hidden=false; $('#calib-actions').hidden=true; });
+$('#learn-cancel').addEventListener('click',hideCalibPanels);
+$('#learn-go').addEventListener('click',()=>{
+  hideCalibPanels();
+  $('#calib-pill').className='pill warn'; $('#calib-pill').innerHTML='<i></i>學習中';
+  $('#calib-summary').textContent='自動學習中：目前上限 940 Mbps（線路的最高速度），有人大量使用網路時才會往下試探。已試探 0 次。';
+  log('改用自動學習：從 940 Mbps 開始，等有負載時往下試探。');
+  toast('已改用自動學習');
+});
+$('#calib-go').addEventListener('click',()=>{
+  $('#calib-confirm').hidden=true; $('#calib-run').hidden=false;
+  const ol=$('#calib-steps'); ol.innerHTML='';
+  PHASES.forEach(([n,s])=>{ const li=document.createElement('li'); li.innerHTML=`<span class="ic"></span><span></span><span class="muted num">${s} 秒</span>`; li.children[1].textContent=n; ol.append(li); });
+  const total=PHASES.reduce((a,p)=>a+p[1],0); let done=0, i=0;
+  const step=()=>{
+    if(i>=PHASES.length){
+      $('#calib-bar').style.width='100%';
+      setTimeout(()=>{
+        hideCalibPanels();
+        $('#calib-pill').className='pill good'; $('#calib-pill').innerHTML='<i></i>已校準';
+        $('#calib-summary').innerHTML=`剛剛校準：下載 <b class="num">488</b>、上傳 <b class="num">491</b> Mbps，滿載時延遲多 <b class="num">36</b> ms，所以維持啟用塑型。CPU 在雙向滿載時最高 52%，可以用完整模式。`;
+        log('校準完成：下載 488、上傳 491 Mbps，滿載延遲 +36 ms，維持塑型。');
+        toast('校準完成');
+      },500);
+      return;
+    }
+    const lis=ol.children; lis[i].className='run';
+    setTimeout(()=>{ lis[i].className='done'; done+=PHASES[i][1]; $('#calib-bar').style.width=(done/total*100)+'%'; i++; step(); }, PHASES[i][1]*1000/15);
+  };
+  step();
+});
+
+/* ---------- dirty tracking / save bar ---------- */
+const form=$('#cfg'); const dirty=new Set();
+form.addEventListener('input',e=>{ if(e.target.id){ dirty.add(e.target.name||e.target.id); updateBar(); } refreshAll(); });
+form.addEventListener('change',e=>{ if(e.target.id){ dirty.add(e.target.name||e.target.id); updateBar(); } refreshAll(); });
+function updateBar(){ $('#savebar').hidden = dirty.size===0; $('#dirty-n').textContent=dirty.size; }
+$('#reset-btn').addEventListener('click',()=>{ form.reset(); dirty.clear(); updateBar(); refreshAll(); toast('已還原成目前生效的設定'); });
+$('#apply-btn').addEventListener('click',()=>{
+  const n=dirty.size; dirty.clear(); updateBar();
+  log(`套用了 ${n} 項設定變更，daemon 已重新載入。`);
+  toast('已套用，Sluice 已重新載入設定');
+});
+$('#offload-dismiss').addEventListener('click',()=>$('#offload-notice').hidden=true);
+
+function refreshAll(){ renderTrade(); renderSens(); renderExpert(); renderLadder(); }
+
+/* ---------- simulated live data ---------- */
+const N=120;
+let dnRateNow=470, upRateNow=478;
+const lat=[], dn=[], up=[], dnR=[], upR=[];
+let loadD=.35, loadU=.08, burst=0;
+function sample(){
+  if(burst>0) burst--; else if(Math.random()<.04) burst=8+Math.floor(Math.random()*18);
+  const targetD = burst>0 ? .97 : .25+Math.random()*.3;
+  loadD += (targetD-loadD)*.35; loadU += ((burst>0?.12:.06)+Math.random()*.06-loadU)*.4;
+  const d = Math.min(dnRateNow, dnRateNow*loadD*(.92+Math.random()*.1));
+  const u = Math.min(upRateNow, 480*loadU*(.8+Math.random()*.4));
+  let l = 1.2+Math.random()*1.6 + (loadD>.9 ? 1.5+Math.random()*3 : 0);
+  if(Math.random()<.015) l += 8+Math.random()*10;
+  if(!$('#en').checked || level===4) l += loadD>.9 ? 25+Math.random()*15 : 0;
+  return {l, d, u};
+}
+for(let i=0;i<N;i++){ const s=sample(); lat.push(s.l); dn.push(s.d); up.push(s.u); dnR.push(dnRateNow); upR.push(upRateNow); }
+
+const W=640,H=200,PL=40,PR=12,PT=12,PB=26;
+function chart(svg,o){
+  const iw=W-PL-PR, ih=H-PT-PB;
+  const x=i=>PL+i*iw/(N-1), y=v=>PT+ih-(Math.max(0,Math.min(v,o.yMax))/o.yMax)*ih;
+  let s='';
+  o.ticks.forEach(t=>{ s+=`<line class="grid" x1="${PL}" x2="${W-PR}" y1="${y(t)}" y2="${y(t)}"/><text class="tick" x="${PL-6}" y="${y(t)+4}" text-anchor="end">${t}</text>`; });
+  [[0,'10 分鐘前','start'],[N/2,'5 分鐘前','middle'],[N-1,'現在','end']].forEach(([i,l,a])=>{ s+=`<text class="tick" x="${x(i)}" y="${H-7}" text-anchor="${a}">${l}</text>`; });
+  if(o.thresh!=null){ s+=`<line class="thresh" x1="${PL}" x2="${W-PR}" y1="${y(o.thresh)}" y2="${y(o.thresh)}"/><text class="thresh-label" x="${W-PR}" y="${y(o.thresh)-5}" text-anchor="end">門檻 ${o.thresh} ms</text>`; }
+  o.series.forEach(se=>{
+    const pts=se.data.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+    if(se.area) s+=`<polygon points="${x(0)},${y(0)} ${pts} ${x(N-1)},${y(0)}" style="fill:var(${se.c});fill-opacity:.13"/>`;
+    s+=`<polyline points="${pts}" fill="none" style="stroke:var(${se.c})" stroke-width="${se.dash?1.4:2}" ${se.dash?'stroke-dasharray="5 4"':''} stroke-linejoin="round" stroke-linecap="round"/>`;
+    if(se.dot){ const v=se.data[N-1]; s+=`<circle cx="${x(N-1)}" cy="${y(v)}" r="3.5" style="fill:var(${se.c})"/>`; }
+  });
+  svg.innerHTML=s;
+}
+function p95(a){ const s=a.slice().sort((x,y)=>x-y); return s[Math.floor(s.length*.95)]; }
+function draw(){
+  const th=parseFloat(eff('thresh'))||TRADE[tradeoff()].th;
+  chart($('#chart-lat'),{yMax:50,ticks:[0,10,20,30,40,50],thresh:th,series:[{data:lat,c:'--down',area:true,dot:true}]});
+  chart($('#chart-bw'),{yMax:500,ticks:[0,100,200,300,400,500],series:[
+    {data:dnR,c:'--down',dash:true},{data:upR,c:'--up',dash:true},
+    {data:dn,c:'--down',area:true,dot:true},{data:up,c:'--up',dot:true}]});
+  $('#lat-now').textContent=lat[N-1].toFixed(1);
+  const pp=p95(lat); $('#lat-p95').textContent=pp.toFixed(1);
+  $('#bw-dn').textContent=Math.round(dn[N-1]); $('#bw-up').textContent=Math.round(up[N-1]);
+  $('#st-down').textContent=dnRateNow; $('#st-up').textContent=upRateNow;
+  const sc=Math.max(0,Math.min(100,Math.round(100-pp*1.6)));
+  $('#score').textContent=sc;
+  $('#score-text').innerHTML = sc>=80
+    ? `網路忙的時候，延遲只多 <b class="num">${pp.toFixed(1)} ms</b>，打電動、視訊會議都不會卡。`
+    : `網路忙的時候，延遲多了 <b class="num">${pp.toFixed(1)} ms</b>，視訊和遊戲可能會感覺到卡頓。`;
+}
+function tick(){
+  const s=sample();
+  // 極簡版 autorate：多數樣本超過門檻且下載負載高 → 降速；長時間正常且滿載 → 慢慢升回
+  const th=parseFloat(eff('thresh'))||15, recent=lat.slice(-5).concat(s.l);
+  if(recent.filter(v=>v>th).length>=3 && loadD>.85 && dnRateNow>420){ dnRateNow=Math.round(dnRateNow*.97); log(`延遲超過門檻，下載上限調降到 ${dnRateNow} Mbps。`); }
+  else if(loadD>.9 && recent.every(v=>v<th*.6) && dnRateNow<486 && Math.random()<.3){ dnRateNow=Math.min(486,dnRateNow+2); }
+  [lat,dn,up,dnR,upR].forEach(a=>a.shift());
+  lat.push(s.l); dn.push(s.d); up.push(s.u); dnR.push(dnRateNow); upR.push(upRateNow);
+  draw(); if(!$('#expert').hidden) renderExpert();
+}
+
+buildExpert(); refreshAll(); draw();
+setInterval(tick, 2000);
+})();
+</script>
