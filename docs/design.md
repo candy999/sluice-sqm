@@ -70,7 +70,7 @@ Cargo workspace：
 - `diffserv4`；上傳 `dual-srchost nat`、下載 `dual-dsthost nat`（同一台裝置開再多連線，也只拿到自己那一份）
 - 有 `cake_mq`（25.12 已 backport）且實測比單佇列好時改用；先在目標硬體上跑分再決定預設。1 Gbps 以下、CPU 夠快（例如 N100）時單佇列 CAKE 就夠
 - 不提供 qdisc 與腳本的自由組合（sqm-scripts 的兩個下拉選單）：一般與進階分頁由 Sluice 自動選；專家分頁只開放 CAKE 參數，以及「HTB＋fq_codel」這個給弱 CPU 的備案
-- L4S（DualPI2）：OpenWrt 25.12 的 6.12 核心沒有，終端支援也還少，暫不做；核心有了以後列為專家分頁的實驗選項
+- L4S（DualPI2）：主線 6.17 才有，OpenWrt 目前只有 snapshot 提供 `kmod-sched-dualpi2`，25.12 沒有；終端支援也還少。列為專家分頁的實驗選項，有模組才顯示（見 4.7）
 - 建立 qdisc 用 `tc` 指令；**改頻寬這個常用動作直接用 netlink**，不 fork `tc`
 - reload 時只改變動的參數，不拆掉重建
 
@@ -110,6 +110,52 @@ Cargo workspace：
 - **軟體 offload**：保留開啟。CAKE 與 `act_ctinfo` 照常作用，分類在連線開頭就完成，不受影響
 - **看門狗**：daemon 停止超過 30 秒，就拿掉 qdisc 讓網路回到不塑型；停止服務時清乾淨
 - VPN：v1 只偵測並說明（路由器上的 WireGuard 會讓每台裝置平分失效），之後處理 fwmark
+
+### 4.7 核心功能：自動帶入、實際偵測、依序降級
+
+**原則**：裝套件時把需要的核心模組一起帶進來；啟動時實際試用每項功能；缺什麼就降到這台機器做得到的最好模式，並在介面說明原因。
+
+**套件依賴分兩級**
+
+| 等級 | 套件 | 怎麼裝 |
+|---|---|---|
+| 必要 | `kmod-sched-cake`（25.12 起含 cake_mq）、`kmod-ifb`、`kmod-sched-ctinfo`、`kmod-sched-core`（HTB、ingress、mirred 等，確切內容待確認）、`tc`、`uclient-fetch` | 寫在 `sluice` 的 DEPENDS，`apk add sluice` 時自動帶入 |
+| 選用 | `kmod-sched-dualpi2`（目前只有 snapshot，25.12 沒有） | 不自動裝。專家分頁偵測到軟體源有這個套件時，顯示一鍵安裝 |
+
+- 官方 25.12 的必要模組在所有目標架構都有，正常情況一定裝得起來
+- **核心模組必須跟韌體的核心同一次編譯**。自己編的韌體或衍生版用官方軟體源可能裝不上；這時不硬裝，直接用現有能力的最好模式，並說明「這份韌體沒有附 X，所以 Y」
+- **不自己打包 out-of-tree 核心模組**（例如舊核心的 DualPI2、cake_mq backport）：每份核心都要重編，維護不起
+- 裝核心模組不用重開機：apk 安裝後會自動載入，Sluice 收到通知或下次檢查時重新偵測並套用
+
+**偵測方式：實際試，不看版本號**
+
+啟動時、套件異動後，在一張暫時的 dummy 介面上逐項試建，失敗就記為沒有：
+
+| 項目 | 怎麼試 |
+|---|---|
+| CAKE | `tc qdisc add dev <dummy> root cake` |
+| cake_mq | `tc qdisc add dev <dummy> root cake_mq` |
+| IFB＋mirred | 建立 ifb 介面，掛 ingress 與 `mirred` 轉送 |
+| ctinfo | 在 ingress 加 `action ctinfo dscp ...` |
+| HTB＋fq_codel | `htb` 根節點＋`fq_codel` 葉節點 |
+| DualPI2 | `tc qdisc add dev <dummy> root dualpi2` |
+
+結果放在 `/status` 的 `capabilities`，每項 `{ok, reason}`。不同韌體、不同核心版本都用同一支執行檔，自己判斷能做什麼（移植也不用改程式）。
+
+**能力不足時的降級**
+
+| 缺少 | 改用 | 失去什麼 |
+|---|---|---|
+| ctinfo | 上傳照常分四級；下載只做每台裝置公平，不分級 | 下載方向的優先順序 |
+| IFB 或 mirred | 只塑上傳 | 下載方向的延遲控制 |
+| CAKE | HTB＋fq_codel（overhead 用 `tc stab` 補償；上傳用 HTB 分 4 級） | 每台裝置公平分配、ACK 過濾；CPU 用量差不多 |
+| HTB 也沒有 | 不塑型，說明缺少的套件 | 全部 |
+
+**最後採用的模式 ＝ 「能力允許的最好模式」與「CPU 保護檔位」取比較低的那一個。** 兩個降級各自判斷、各自顯示原因。
+
+**選「最合適」，不是選「最新」**
+- cake_mq：只有在**單一核心跟不上**（CPU 保護量到單核 softirq 滿、其他核心還閒）而且網卡有多個佇列時才改用。N100 跑 500/500 用單佇列 CAKE 就夠，不會切換
+- DualPI2（L4S）：不在自動降級鏈裡。它要兩端都支援 L4S 才有好處，也沒有每台裝置公平分配與 overhead 補償。核心有、使用者在專家分頁打開時才用（外面要包 HTB 限速）
 
 ## 5. 流量分類
 
@@ -174,7 +220,7 @@ CAKE 的 tin 不是嚴格排隊：前三級各有上限（1/4、1/2、全部）�
 ## 9. 打包
 
 - `openwrt/` feed 目錄：`sluice`、`luci-app-sluice` 兩個套件 Makefile，用 SDK 的 rust-package.mk
-- 依賴：kmod-sched-cake、kmod-ifb、kmod-sched-ctinfo、tc、uclient-fetch
+- 依賴：見 4.7（必要的寫進 DEPENDS 自動帶入；選用的由介面一鍵安裝）
 - 每個 Release 附通用 Linux 包、`sluice-<版本>-source.tar.xz`（含 `cargo vendor`）、`SHA256SUMS`
 
 ## 10. 開發順序
