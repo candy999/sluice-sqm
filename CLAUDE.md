@@ -4,7 +4,7 @@
 
 ## 溝通
 
-- 回覆用繁體中文（台灣用語）。程式碼、識別字、commit message 用英文；README 中英各一份。
+- 回覆用繁體中文（台灣用語）。程式碼、識別字、commit message 用英文；README 以繁體中文為主（`README.md`），另附英文版 `README.en.md`。
 - 使用者有電子工程背景，網路與 Linux 概念不用從頭解釋。
 - 用語照 `docs/porting-lessons.md` 第 5.3 節。
 
@@ -19,7 +19,7 @@ OpenWrt 專用、開了就能用的流量塑型，體驗類似 cFosSpeed。大�
 | `docs/design.md` | 設計定案：架構、塑型、CPU 保護、能力偵測、分類、API、測試、打包、開發順序 |
 | `docs/porting-lessons.md` | 從 kuroshio-dns／padavan-tw 學到的守則：API 約定、UCI 文字解析、Flash 寫入、健康檢查、介面規則 |
 | `docs/mockups/luci-ui.html` | LuCI 介面草稿，四個分頁的樣式與用語 |
-| `README.md`、`README.zh-TW.md` | 對外介紹，設計改了要一起更新 |
+| `README.md`（繁中，首頁預設）、`README.en.md`（英文） | 對外介紹，以繁中為主；設計改了兩份要一起更新 |
 
 ## 已定案（摘要，細節見 design.md）
 

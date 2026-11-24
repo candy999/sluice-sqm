@@ -1,79 +1,62 @@
 # Sluice SQM
 
-> Zero-config smart queue management for OpenWrt — a standalone replacement for sqm-scripts.
+> 開了就能用的 OpenWrt 智慧流量塑型，可直接取代 sqm-scripts。
 
-[繁體中文](README.zh-TW.md)
+[English](README.en.md)
 
-Sluice keeps your connection responsive under load. Gaming, video calls and
-browsing stay smooth even while someone else is downloading, uploading or
-running BitTorrent.
+家裡有人在下載、上傳或掛 BT 的時候，打遊戲、開視訊會議、滑網頁照樣順暢，這就是 Sluice SQM 要做的事。
 
-Most SQM setups ask you to measure your bandwidth, pick an overhead value,
-guess a link-layer type and choose between qdiscs and scripts. Sluice works
-these out by itself:
+一般的 SQM 要你自己測頻寬、選 overhead、猜 link layer，還要在一堆 qdisc 和腳本之間做選擇。Sluice SQM 會自己判斷：
 
-- **Detects your link**: reads the WAN protocol (PPPoE, DHCP, VLAN…) and sets the overhead for you, erring on the high side
-- **Calibrates bandwidth**: a ~3-minute test on first run. You can also skip it and let Sluice learn under real load
-- **Adapts in real time**: watches latency to several reflectors and only throttles the direction that is actually congested
-- **Skips shaping when it isn't needed**: if your line barely bloats under load, it stays at full speed. If only one direction bloats, Sluice shapes only that one
-- **Knows your hardware**: probes what the running kernel can actually do (CAKE, cake_mq, IFB, ctinfo, HTB) and falls back gracefully
-- **Protects the CPU**: when the router can't keep up, it first tunes (packet steering, cake_mq, a lower ceiling), then sheds features step by step, from the cheapest to lose to the most expensive
-- **Prioritizes by what traffic is**: four tiers (calls → games → streaming → downloads) based on domains, device type and connection behaviour. P2P is detected even when it is encrypted
-- **Never breaks your internet**: all per-packet work stays in the kernel. If the daemon stops, a watchdog removes shaping instead of leaving a broken queue
+- **辨識線路**：讀 WAN 的連線方式（PPPoE、DHCP、VLAN 等），自動帶入 overhead，寧可高估也不低估
+- **校準頻寬**：第一次啟用時花約 3 分鐘量測。也可以不校準，讓它在實際使用中自己學
+- **即時調整**：持續看多個測點的延遲，只壓真正塞住的那個方向
+- **不需要就不塑型**：線路滿載時延遲幾乎沒增加，就保留全速；只有一個方向變差，就只塑那個方向
+- **認得硬體**：實際試用這份韌體的核心能做什麼（CAKE、cake_mq、IFB、ctinfo、HTB），缺什麼就降到做得到的最好模式
+- **保護 CPU**：路由器跟不上時，先調整（分散中斷、多佇列 CAKE、降低上限），不夠再依序拿掉功能，從影響最小的開始
+- **依流量種類排順序**：電話與視訊 → 線上遊戲 → 影片串流 → 檔案下載，依網域、裝置類型與連線行為判斷，加密的 P2P 也認得出來
+- **不會讓你斷網**：每個封包的處理都留在核心。daemon 停止時，看門狗會把塑型拿掉，不會留下壞掉的佇列
 
-> Sluice SQM is an independent implementation, not a fork of sqm-scripts.
-> Don't run it alongside sqm-scripts, qosify or nft-qos. Sluice will warn you if it finds them.
+> Sluice SQM 是獨立實作，不是 sqm-scripts 的分支。
+> 請勿與 sqm-scripts、qosify、nft-qos 同時啟用，偵測到時 Sluice 會提醒你。
 
-## Four tabs, three levels of control
+## 四個分頁，三種控制程度
 
-| Tab | For | What you see |
+| 分頁 | 適合 | 你會看到 |
 |---|---|---|
-| Overview | Everyone | Latency grade, current rates, what was detected and why |
-| Simple | Everyone | One switch, a trade-off slider (latency ↔ bandwidth) |
-| Advanced | Enthusiasts | Per-device priority, bandwidth bounds, adaptation sensitivity |
-| Expert | Network nerds | Raw CAKE parameters, an HTB + fq_codel fallback, experimental L4S |
+| 總覽 | 所有人 | 延遲等級、目前速率、偵測到什麼以及為什麼這樣設 |
+| 一般 | 所有人 | 一個開關、取捨（延遲優先 ↔ 頻寬優先） |
+| 進階 | 玩家與愛好者 | 每台裝置的優先順序、頻寬上下限、調整靈敏度 |
+| 專家 | 網路老手 | 直接改 CAKE 參數、HTB＋fq_codel 備案、實驗性的 L4S |
 
-## How it works
+## 運作方式
 
-```
-        ┌────────────── sluice daemon (Rust): decisions ───────────────┐
-        │ link detection  calibration  autorate  CPU guard  device/P2P │
-        └──────┬───────────────────┬─────────────────────┬─────────────┘
-       rate (netlink)     nft sets (devices, domains, P2P)    conntrack events, counters
-               ▼                   ▼                     ▲
-        ┌──────────────── Linux kernel: every packet ──────────────────┐
-        │ CAKE (egress + IFB ingress)  nftables  conntrack  act_ctinfo │
-        └──────────────────────────────────────────────────────────────┘
-```
+Rust 只負責判斷與調整，每個封包的處理一律交給 Linux 核心（CAKE、nftables、conntrack）。這樣速度快，各家網卡與硬體加速由核心處理，daemon 出問題也不影響轉送。完整設計見 [docs/design.md](docs/design.md)。
 
-Rust only decides and adjusts. The kernel does all per-packet work. See
-[docs/design.md](docs/design.md) for the full design.
+## 開發狀態
 
-## Status
-
-🚧 **Design finalized, implementation starting.** No installable package yet.
+🚧 **設計已定案，開始實作。** 目前還沒有可安裝的套件。
 
 | | |
 |---|---|
-| Target | OpenWrt 25.12+ (apk packages) |
-| Architectures | x86_64, aarch64, armv7 (musl) |
-| Not supported | MIPS (e.g. MT7621). CAKE tops out around 150–400 Mbps there |
-| Reference hardware | Intel N100 on 500/500 Mbps FTTH (PPPoE) |
+| 目標系統 | OpenWrt 25.12 以上（apk 套件） |
+| 支援架構 | x86_64、aarch64、armv7（musl） |
+| 不支援 | MIPS（例如 MT7621），這類晶片跑 CAKE 約 150～400 Mbps 就到頂 |
+| 實測硬體 | Intel N100＋光世代 500/500 FTTH（PPPoE） |
 
-## Documentation
+## 文件
 
-| File | Contents |
+| 檔案 | 內容 |
 |---|---|
-| [docs/design.md](docs/design.md) | Finalized design (in Traditional Chinese) |
-| [docs/porting-lessons.md](docs/porting-lessons.md) | Lessons from porting kuroshio-dns to Padavan that shape this project |
-| [docs/mockups/luci-ui.html](docs/mockups/luci-ui.html) | LuCI UI mockup (open in a browser) |
-| [CLAUDE.md](CLAUDE.md) | Development handoff and conventions |
+| [docs/design.md](docs/design.md) | 設計定案 |
+| [docs/porting-lessons.md](docs/porting-lessons.md) | 從黑潮 DNS 移植到 Padavan 學到、套用在本專案的守則 |
+| [docs/mockups/luci-ui.html](docs/mockups/luci-ui.html) | LuCI 介面草稿（用瀏覽器開啟） |
+| [CLAUDE.md](CLAUDE.md) | 開發交接與程式規範 |
 
-## Contributing
+## 參與貢獻
 
-Contributions use the [DCO](https://developercertificate.org/). Sign off your
-commits with `git commit -s`. No CLA.
+採用 [DCO](https://developercertificate.org/)，commit 時加上 `git commit -s` 簽署即可，不需要 CLA。
 
-## License
+## 授權
 
-[GPL-2.0-only](LICENSE), for both the `sluice` daemon and `luci-app-sluice`.
+[GPL-2.0-only](LICENSE)，`sluice` 與 `luci-app-sluice` 相同。
